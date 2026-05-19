@@ -1056,11 +1056,15 @@
     const category = document.getElementById('new-asset-cat').value;
     const amount = parseFloat(document.getElementById('new-asset-amount').value) || 0;
     if (!name) { document.getElementById('new-asset-name').focus(); return; }
-    const { error } = await supabase.from('ledger_assets')
-      .insert({ name, category, amount });
-    if (error) { console.error(error); showToast('新增失敗：' + error.message); return; }
     document.getElementById('new-asset-name').value = '';
     document.getElementById('new-asset-amount').value = '';
+    const { data, error } = await supabase.from('ledger_assets')
+      .insert({ name, category, amount })
+      .select()
+      .single();
+    if (error) { console.error(error); showToast('新增失敗：' + error.message); return; }
+    state.assets.push(data);
+    renderAssets();
   });
 
   // ----- LEDGER -----
@@ -1166,11 +1170,15 @@
     const category = document.getElementById('new-entry-cat').value;
     const amount = parseFloat(document.getElementById('new-entry-amount').value) || 0;
     if (!name) { document.getElementById('new-entry-name').focus(); return; }
-    const { error } = await supabase.from('ledger_entries')
-      .insert({ type: entryType, category, name, amount, ym: currentYm });
-    if (error) { console.error(error); showToast('新增失敗：' + error.message); return; }
     document.getElementById('new-entry-name').value = '';
     document.getElementById('new-entry-amount').value = '';
+    const { data, error } = await supabase.from('ledger_entries')
+      .insert({ type: entryType, category, name, amount, ym: currentYm })
+      .select()
+      .single();
+    if (error) { console.error(error); showToast('新增失敗：' + error.message); return; }
+    state.entries.unshift(data);
+    renderLedger();
   });
 
   // ----- HOUSEHOLD -----
@@ -1182,8 +1190,13 @@
       chip.className = 'preset-chip';
       chip.textContent = p;
       chip.addEventListener('click', async () => {
-        const { error } = await supabase.from('ledger_items').insert({ name: p });
-        if (error) { console.error(error); showToast('新增失敗'); }
+        const { data, error } = await supabase.from('ledger_items')
+          .insert({ name: p })
+          .select()
+          .single();
+        if (error) { console.error(error); showToast('新增失敗'); return; }
+        state.items.unshift(data);
+        renderHousehold();
       });
       grid.appendChild(chip);
     });
@@ -1233,9 +1246,14 @@
     const input = document.getElementById('new-household-name');
     const name = input.value.trim();
     if (!name) return;
-    const { error } = await supabase.from('ledger_items').insert({ name });
-    if (error) { console.error(error); showToast('新增失敗'); return; }
     input.value = '';
+    const { data, error } = await supabase.from('ledger_items')
+      .insert({ name })
+      .select()
+      .single();
+    if (error) { console.error(error); showToast('新增失敗'); return; }
+    state.items.unshift(data);
+    renderHousehold();
   });
   document.getElementById('new-household-name').addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); document.getElementById('add-household-btn').click(); }

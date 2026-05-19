@@ -1,7 +1,8 @@
 // 家庭帳本 · Service Worker
-// 純本機應用，service worker 只是讓 App 可以離線開啟（資料一直存在 localStorage）
+// 快取 App 殼層（HTML/icon/manifest）讓首次開啟之後可以離線載入；
+// 資料本身存在 Supabase，需要網路才會同步。
 
-const CACHE = 'family-ledger-v1';
+const CACHE = 'family-ledger-v2';
 
 const SHELL = [
   './',
@@ -36,9 +37,16 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// 取得：stale-while-revalidate（快取優先，背景更新）
+// 取得：對 shell 用 stale-while-revalidate；Supabase 一律走網路，不快取
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+
+  // 永遠不快取 Supabase REST / Realtime（資料才會新鮮）
+  if (url.hostname.includes('supabase.co') || url.hostname.includes('supabase.in')) {
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
