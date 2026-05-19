@@ -2,7 +2,7 @@
 // 快取 App 殼層（HTML/icon/manifest）讓首次開啟之後可以離線載入；
 // 資料本身存在 Supabase，需要網路才會同步。
 
-const CACHE = 'family-ledger-v3';
+const CACHE = 'family-ledger-v4';
 
 const SHELL = [
   './',
