@@ -1008,8 +1008,10 @@
       b.addEventListener('click', async e => {
         const id = e.currentTarget.dataset.id;
         if (!confirm('刪除這筆資產？')) return;
+        state.assets = state.assets.filter(x => x.id !== id);
+        renderAssets();
         const { error } = await supabase.from('ledger_assets').delete().eq('id', id);
-        if (error) { console.error(error); showToast('刪除失敗'); }
+        if (error) { console.error(error); showToast('刪除失敗'); reloadAssets(); }
       });
     });
     renderPie();
@@ -1140,8 +1142,10 @@
       b.addEventListener('click', async e => {
         const id = e.currentTarget.dataset.id;
         if (!confirm('刪除這筆紀錄？')) return;
+        state.entries = state.entries.filter(x => x.id !== id);
+        renderLedger();
         const { error } = await supabase.from('ledger_entries').delete().eq('id', id);
-        if (error) { console.error(error); showToast('刪除失敗'); }
+        if (error) { console.error(error); showToast('刪除失敗'); reloadEntries(); }
       });
     });
   }
@@ -1216,8 +1220,11 @@
       if (error) { console.error(error); showToast('儲存失敗'); reloadItems(); }
     });
     row.querySelector('.row-del').addEventListener('click', async () => {
+      // 樂觀更新：先從畫面拿掉，再呼叫 Supabase
+      state.items = state.items.filter(x => x.id !== i.id);
+      renderHousehold();
       const { error } = await supabase.from('ledger_items').delete().eq('id', i.id);
-      if (error) { console.error(error); showToast('刪除失敗'); }
+      if (error) { console.error(error); showToast('刪除失敗'); reloadItems(); }
     });
     return row;
   }
