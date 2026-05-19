@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#f6efe1">
+<title>家庭帳本 · 柴米油鹽</title>
+
+<!-- PWA -->
+<link rel="manifest" href="./ledger-manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="家庭帳本">
+<link rel="apple-touch-icon" href="./ledger-icon-192.png">
+<link rel="icon" type="image/png" href="./ledger-icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f6efe1; --paper-soft: #fbf6ea; --paper-deep: #ede2c6;
+    --ink: #2a1f17; --ink-soft: #5d4b3a; --ink-faint: #8d7a64;
+    --hairline: #e3d6bc;
+    --terra: #b9603a; --terra-deep: #984a2a;
+    --sage: #7e8b65; --sage-deep: #5d6e4a;
+    --amber: #c98a3f;
+    --sky: #6b8a9e;
+    --rose: #b88497;
+    --error: #b04040;
+    --shadow: 0 1px 0 rgba(42,31,23,0.04), 0 8px 24px -12px rgba(42,31,23,0.18);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--paper); color: var(--ink);
+    font-family: "Noto Sans TC", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(185,96,58,0.04) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(126,139,101,0.04) 0%, transparent 50%);
+  }
+  body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.16 0 0 0 0 0.12 0 0 0 0 0.09 0 0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    opacity: 0.55; mix-blend-mode: multiply;
+  }
+
+  .app {
+    position: relative; z-index: 1;
+    max-width: 480px; margin: 0 auto;
+    min-height: 100vh; min-height: 100dvh;
+    padding-bottom: calc(40px + var(--safe-bottom));
+  }
+
+  /* VIEW SWITCHER */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ============ HEADER ============ */
+  .header { padding: 22px 20px 14px; }
+  .brand { font-size: 10px; letter-spacing: 0.4em; color: var(--ink-faint); text-transform: uppercase; margin-bottom: 6px; }
+  .doc-title { font-family: "Noto Serif TC", serif; font-weight: 600; font-size: 24px; color: var(--ink); margin: 0; }
+
+  /* ============ AUTH / GATE VIEWS ============ */
+  .gate {
+    padding: 40px 24px 28px;
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; flex-direction: column;
+  }
+  .gate .brand { margin-bottom: 12px; }
+  .gate-title {
+    font-family: "Noto Serif TC", serif;
+    font-weight: 600; font-size: 28px;
+    margin: 0 0 24px;
+    color: var(--ink);
+  }
+  .auth-tabs { display: flex; gap: 24px; margin-bottom: 20px; }
+  .auth-tab {
+    background: none; border: none; padding: 6px 0;
+    font-family: "Noto Serif TC", serif; font-size: 16px;
+    color: var(--ink-faint); cursor: pointer; position: relative;
+  }
+  .auth-tab.active { color: var(--ink); font-weight: 600; }
+  .auth-tab.active::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -4px;
+    height: 2px; background: var(--terra);
+  }
+  .gate-field { margin-bottom: 14px; }
+  .gate-field label {
+    display: block;
+    font-family: "Noto Serif TC", serif;
+    font-size: 11px; letter-spacing: 0.2em;
+    color: var(--ink-faint);
+    margin-bottom: 6px;
+  }
+  .gate-field input {
+    width: 100%;
+    font-family: "Noto Serif TC", serif;
+    font-size: 16px;
+    padding: 13px 14px;
+    background: var(--paper-soft);
+    border: 1px solid var(--hairline);
+    color: var(--ink);
+    outline: none;
+    min-height: 46px;
+    border-radius: 0;
+    -webkit-appearance: none;
+  }
+  .gate-field input:focus { border-color: var(--terra); }
+  .gate-msg {
+    font-family: "Noto Serif TC", serif;
+    font-size: 13px;
+    margin-top: 10px;
+    min-height: 22px;
+  }
+  .gate-msg.error { color: var(--error); }
+  .gate-msg.info  { color: var(--sage-deep); }
+  .gate-msg.body  { color: var(--ink-soft); line-height: 1.7; }
+  .gate-uid {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: var(--paper-soft);
+    border: 1px dashed var(--hairline);
+    font-family: "Noto Sans TC", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    word-break: break-all;
+  }
+  .gate-actions { margin-top: 18px; }
+  .gate-primary {
+    width: 100%; padding: 14px;
+    background: var(--terra); color: var(--paper-soft);
+    border: none;
+    font-family: "Noto Serif TC", serif;
+    font-size: 15px; font-weight: 500;
+    letter-spacing: 0.15em; cursor: pointer;
+    min-height: 48px; border-radius: 2px;
+  }
+  .gate-primary:active { background: var(--terra-deep); }
+  .gate-primary:disabled { opacity: 0.5; cursor: wait; }
+  .gate-ghost {
+    width: 100%; padding: 12px;
+    background: transparent; color: var(--ink-soft);
+    border: 1px dashed var(--hairline);
+    font-family: "Noto Serif TC", serif;
+    font-size: 14px; cursor: pointer;
+    margin-top: 12px;
+  }
+  .gate-ghost:active { border-color: var(--terra); color: var(--terra); }
+
+  /* ============ STICKY TABS ============ */
+  .tabs-wrap {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--paper);
+    padding: 8px 16px 12px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .tabs {
+    display: flex; gap: 4px;
+    background: var(--paper-soft);
+    border: 1px solid var(--hairline);
+    padding: 3px; border-radius: 2px;
+  }
+  .tab {
+    flex: 1; padding: 11px 4px;
+    background: transparent; border: none;
+    font-family: "Noto Serif TC", serif; font-size: 13px; font-weight: 500;
+    color: var(--ink-faint); cursor: pointer;
+    transition: all 0.15s; border-radius: 2px;
+    min-height: 44px;
+  }
+  .tab.active { background: var(--ink); color: var(--paper); }
+  .tab:not(.active):active { background: var(--paper-deep); }
+
+  /* ============ CONTENT ============ */
+  .content { padding: 20px 16px 0; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .sec-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .sec-title {
+    font-family: "Noto Serif TC", serif; font-size: 16px; font-weight: 600;
+    color: var(--ink); display: flex; align-items: baseline; gap: 9px;
+  }
+  .sec-title::before {
+    content: ""; width: 5px; height: 5px; background: var(--terra);
+    display: inline-block; transform: translateY(-2px);
+  }
+  .sec-meta { font-size: 12px; color: var(--ink-faint); font-family: "Noto Serif TC", serif; }
+
+  /* ============ SHARED FORMS ============ */
+  .form-card {
+    background: var(--paper-soft);
+    border: 1px solid var(--hairline);
+    padding: 14px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+  }
+  .form-card label {
+    display: block;
+    font-family: "Noto Serif TC", serif;
+    font-size: 11px; letter-spacing: 0.2em;
+    color: var(--ink-faint);
+    margin: 6px 0 4px;
+  }
+  .form-card label:first-child { margin-top: 0; }
+  .form-card input,
+  .form-card select {
+    width: 100%;
+    font-family: "Noto Serif TC", serif;
+    font-size: 16px;
+    padding: 13px 14px;
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    color: var(--ink);
+    outline: none;
+    min-height: 46px;
+    border-radius: 0;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .form-card select {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%238d7a64' d='M6 8L0 0h12z'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+  .form-card input:focus,
+  .form-card select:focus { border-color: var(--terra); }
+  .form-card .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .submit-btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--terra);
+    color: var(--paper-soft);
+    border: none;
+    font-family: "Noto Serif TC", serif;
+    font-size: 15px; font-weight: 500;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    margin-top: 12px;
+    min-height: 48px;
+    border-radius: 2px;
+    transition: background 0.15s;
+  }
+  .submit-btn:active { background: var(--terra-deep); }
+
+  /* ============ TAB 1: ASSETS ============ */
+  .total-card {
+    background: var(--paper-soft);
+    border: 1px solid var(--hairline);
+    padding: 26px 18px 22px;
+    margin-bottom: 18px;
+    box-shadow: var(--shadow);
+    text-align: center;
+  }
+  .total-card .lbl {
+    font-size: 10px; letter-spacing: 0.35em;
+    color: var(--ink-faint); margin-bottom: 8px;
+  }
+  .total-card .big {
+    font-family: "Noto Serif TC", serif;
+    font-size: 36px; font-weight: 600;
+    color: var(--ink); line-height: 1.1;
+    word-break: break-all;
+  }
+  .total-card .currency {
+    font-size: 16px; color: var(--ink-faint);
+    margin-right: 6px; vertical-align: middle;
+  }
+
+  .chart-card {
+    background: var(--paper-soft);
+    border: 1px solid var(--hairline);
+    padding: 20px 16px;
+    margin-bottom: 22px;
+    box-shadow: var(--shadow);
+  }
+  .chart-pie { display: block; margin: 0 auto 14px; width: 180px; height: 180px; }
+  .chart-legend {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+    font-family: "Noto Serif TC", serif;
+    font-size: 13px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; color: var(--ink-soft); }
+  .legend-swatch { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .legend-pct { margin-left: auto; color: var(--ink-faint); font-size: 11px; }
+
+  .asset-card {
+    background: var(--paper-soft);
+    border: 1px solid var(--hairline);
+    padding: 14px 14px 12px;
+    margin-bottom: 8px;
+    box-shadow: var(--shadow);
+  }
+  .asset-top {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 8px;
+  }
+  .asset-name {
+    flex: 1; min-width: 0;
+    background: transparent; border: none; outline: none;
+    font-family: "Noto Serif TC", serif;
+    font-size: 16px; font-weight: 500;
+    color: var(--ink); padding: 4px 0;
+    min-height: 28px;
+  }
+  .asset-bot {
+    display: flex; align-items: center; gap: 10px;
+    padding-top: 6px;
+    border-top: 1px dotted var(--hairline);
+  }
+  .asset-cat-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: "Noto Serif TC", serif;
+    font-size: 12px; color: var(--ink-soft);
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .asset-cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .asset-amount {
+    flex: 1; margin-left: auto;
+    min-width: 0;
+    background: transparent; border: none; outline: none;
+    font-family: "Noto Serif TC", serif;
+    font-size: 17px; font-weight: 600;
+    color: var(--terra); text-align: right;
+    padding: 4px 0; min-height: 28px;
+  }
+  .row-del {
+    background: none; border: none;
+    color: var(--ink-faint); font-size: 22px;
+    cursor: pointer;
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1; flex-shrink: 0;
+    margin-right: -6px;
+  }
+  .row-del:active { color: var(--terra); }
+
+  /* ============ TAB 2: LEDGER ============ */
+  .month-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+    background: var(--paper-soft);
+    border: 1px solid var(--hairline);
+    box-shadow: var(--shadow);
+  }
+  .month-nav button {
+    background: none; border: none;
+    color: var(--ink-soft); font-size: 24px;
+    cursor: pointer;
+    width: 52px; height: 52px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .month-nav button:active { color: var(--terra); }
+  .month-label {
+    flex: 1; text-align: center;
+    font-family: "Noto Serif TC", serif;
+    font-size: 16px; font-weight: 500; color: var(--ink);
+  }
+
+  .summary-card {
+    background: var(--paper-soft);
+    border: 1px solid var(--hairline);
+    padding: 16px 14px;
+    margin-bottom: 18px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    font-family: "Noto Serif TC", serif;
+  }
+  .ms-block { text-align: center; padding: 4px 0; }
+  .ms-block .lbl { font-size: 10px; letter-spacing: 0.2em; color: var(--ink-faint); margin-bottom: 4px; }
+  .ms-block .val { font-size: 18px; font-weight: 600; line-height: 1.1; word-break: break-all; }
+  .ms-block.income .val { color: var(--sage-deep); }
+  .ms-block.expense .val { color: var(--terra); }
+  .ms-block.net .val { color: var(--ink); }
+  .ms-divider { width: 1px; background: var(--hairline); align-self: stretch; }
+
+  .type-toggle {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 6px; margin-bottom: 14px;
+  }
+  .toggle-btn {
+    padding: 12px;
+    background: var(--paper-soft);
+    border: 1px solid var(--hairline);
+    font-family: "Noto Serif TC", serif;
+    font-size: 14px; font-weight: 500;
+    color: var(--ink-faint);
+    cursor: pointer;
+    min-height: 44px;
+  }
+  .toggle-btn.active {
+    background: var(--ink); color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  .entry-card {
+    background: var(--paper-soft);
+    border: 1px solid var(--hairline);
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    box-shadow: var(--shadow);
+  }
+  .entry-top {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 6px;
+  }
+  .entry-check {
+    width: 26px; height: 26px;
+    border: 1.5px solid var(--ink-faint);
+    background: var(--paper);
+    cursor: pointer; flex-shrink: 0;
+    position: relative; border-radius: 2px;
+  }
+  .entry-check.hidden { visibility: hidden; }
+  .entry-check.checked { border-color: var(--sage); background: var(--sage); }
+  .entry-check.checked::after {
+    content: ""; position: absolute; left: 8px; top: 3px;
+    width: 6px; height: 12px; border: solid var(--paper-soft);
+    border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  .entry-name {
+    flex: 1; min-width: 0;
+    background: transparent; border: none; outline: none;
+    font-family: "Noto Serif TC", serif;
+    font-size: 16px; font-weight: 500;
+    color: var(--ink); padding: 4px 0;
+    min-height: 28px;
+  }
+  .entry-name.done { text-decoration: line-through; color: var(--ink-faint); }
+  .entry-bot {
+    display: flex; align-items: center; gap: 10px;
+    padding-top: 6px; padding-left: 38px;
+    border-top: 1px dotted var(--hairline);
+  }
+  .entry-cat {
+    font-family: "Noto Serif TC", serif;
+    font-size: 12px; color: var(--ink-soft);
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .entry-amount {
+    flex: 1; margin-left: auto;
+    min-width: 0;
+    background: transparent; border: none; outline: none;
+    font-family: "Noto Serif TC", serif;
+    font-size: 17px; font-weight: 600;
+    text-align: right; padding: 4px 0; min-height: 28px;
+  }
+  .entry-card.income .entry-amount { color: var(--sage-deep); }
+  .entry-card.expense .entry-amount { color: var(--terra); }
+
+  /* ============ TAB 3: HOUSEHOLD ============ */
+  .preset-grid {
+    display: flex; flex-wrap: wrap; gap: 7px;
+    margin-bottom: 18px;
+  }
+  .preset-chip {
+    background: var(--paper-soft);
+    border: 1px solid var(--hairline);
+    padding: 10px 14px;
+    font-family: "Noto Serif TC", serif;
+    font-size: 14px; color: var(--ink);
+    cursor: pointer; border-radius: 999px;
+    transition: all 0.15s;
+    min-height: 38px;
+  }
+  .preset-chip:active {
+    background: var(--terra); color: var(--paper);
+    border-color: var(--terra);
+  }
+
+  .shop-section { margin-bottom: 22px; }
+  .shop-section.done-section .sec-title::before { background: var(--sage); }
+  .shop-section.done-section .sec-meta { color: var(--sage); }
+
+  .shop-item {
+    background: var(--paper-soft);
+    border: 1px solid var(--hairline);
+    padding: 14px;
+    margin-bottom: 8px;
+    box-shadow: var(--shadow);
+    display: flex; align-items: center; gap: 14px;
+    min-height: 56px;
+  }
+  .shop-check {
+    width: 28px; height: 28px;
+    border: 1.5px solid var(--ink-faint);
+    background: var(--paper);
+    cursor: pointer; flex-shrink: 0;
+    position: relative; border-radius: 2px;
+  }
+  .shop-check.checked { border-color: var(--sage); background: var(--sage); }
+  .shop-check.checked::after {
+    content: ""; position: absolute; left: 9px; top: 3px;
+    width: 6px; height: 13px; border: solid var(--paper-soft);
+    border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  .shop-name {
+    flex: 1;
+    font-family: "Noto Serif TC", serif;
+    font-size: 16px; color: var(--ink);
+  }
+  .shop-name.done {
+    text-decoration: line-through;
+    color: var(--ink-faint);
+  }
+
+  /* ============ EMPTY / FOOTER ============ */
+  .empty-state {
+    padding: 28px 16px;
+    text-align: center;
+    font-family: "Noto Serif TC", serif;
+    font-size: 13px;
+    color: var(--ink-faint);
+    font-style: italic;
+  }
+  .loading {
+    padding: 120px 24px;
+    text-align: center;
+    font-family: "Noto Serif TC", serif;
+    color: var(--ink-faint);
+    font-size: 14px;
+    letter-spacing: 0.2em;
+  }
+  .footer {
+    margin-top: 30px;
+    padding: 20px 16px;
+    border-top: 1px solid var(--hairline);
+    text-align: center;
+    font-family: "Noto Serif TC", serif;
+    font-size: 11px;
+    color: var(--ink-faint);
+    letter-spacing: 0.15em;
+    line-height: 1.8;
+  }
+  .small-btn {
+    background: none; border: none;
+    color: var(--ink-faint); font-size: 11px;
+    letter-spacing: 0.15em; font-family: inherit;
+    cursor: pointer; padding: 6px 12px;
+    min-height: 32px;
+  }
+  .small-btn:active { color: var(--terra); }
+
+  /* ============ TOAST ============ */
+  .toast {
+    position: fixed; bottom: 30px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: var(--paper);
+    padding: 10px 18px;
+    font-family: "Noto Serif TC", serif; font-size: 14px;
+    border-radius: 2px;
+    box-shadow: 0 8px 24px -8px rgba(0,0,0,0.4);
+    opacity: 0; transition: all 0.25s ease;
+    z-index: 100; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ Loading ============ -->
+  <div class="view active" id="view-loading">
+    <div class="loading">載入中⋯</div>
+  </div>
+
+  <!-- ============ Auth ============ -->
+  <div class="view" id="view-auth">
+    <div class="gate">
+      <div class="brand">FAMILY · 日 日 整 理</div>
+      <h1 class="gate-title">家庭帳本</h1>
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-mode="signin">登入</button>
+        <button class="auth-tab" data-mode="signup">註冊</button>
+      </div>
+      <div class="gate-field">
+        <label>EMAIL</label>
+        <input type="email" id="auth-email" autocomplete="email" />
+      </div>
+      <div class="gate-field">
+        <label>密碼</label>
+        <input type="password" id="auth-password" autocomplete="current-password" />
+      </div>
+      <button class="gate-primary" id="auth-submit">登入</button>
+      <div class="gate-msg error" id="auth-error"></div>
+      <div class="gate-msg info" id="auth-info"></div>
+    </div>
+  </div>
+
+  <!-- ============ No Access (logged in but not on whitelist) ============ -->
+  <div class="view" id="view-noaccess">
+    <div class="gate">
+      <div class="brand">FAMILY · 日 日 整 理</div>
+      <h1 class="gate-title">尚未開通</h1>
+      <div class="gate-msg body">
+        你已經登入，但這個帳號還沒被加入家庭帳本的白名單。
+        <br><br>
+        請把下面這串「使用者 ID」傳給帳本管理員，由他在後台把你加入：
+      </div>
+      <div class="gate-uid" id="noaccess-uid">—</div>
+      <div class="gate-actions">
+        <button class="gate-primary" id="noaccess-recheck">已加入，重新檢查</button>
+        <button class="gate-ghost" id="noaccess-signout">登出</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ Main ============ -->
+  <div class="view" id="view-main">
+    <div class="header">
+      <div class="brand">FAMILY · 日 日 整 理</div>
+      <h1 class="doc-title">家庭帳本</h1>
+    </div>
+
+    <div class="tabs-wrap">
+      <div class="tabs">
+        <button class="tab active" data-tab="assets">家庭總資產</button>
+        <button class="tab" data-tab="ledger">重要收支</button>
+        <button class="tab" data-tab="household">柴米油鹽</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- TAB 1 -->
+      <section class="panel active" id="panel-assets">
+
+        <div class="total-card">
+          <div class="lbl">TOTAL ASSETS</div>
+          <div class="big"><span class="currency">NT$</span><span id="total-assets">0</span></div>
+        </div>
+
+        <div class="chart-card" id="chart-card" style="display:none;">
+          <svg class="chart-pie" id="pie-svg" viewBox="0 0 100 100"></svg>
+          <div class="chart-legend" id="pie-legend"></div>
+        </div>
+
+        <div class="sec-head">
+          <div class="sec-title">新增資產</div>
+        </div>
+
+        <div class="form-card">
+          <label>名稱</label>
+          <input id="new-asset-name" placeholder="例如：玉山活存" />
+          <div class="grid-2">
+            <div>
+              <label>類別</label>
+              <select id="new-asset-cat">
+                <option value="存款">存款</option>
+                <option value="基金">基金</option>
+                <option value="股票">股票</option>
+                <option value="保險">保險</option>
+                <option value="不動產">不動產</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
+            <div>
+              <label>金額</label>
+              <input type="number" inputmode="numeric" id="new-asset-amount" placeholder="0" />
+            </div>
+          </div>
+          <button class="submit-btn" id="add-asset-btn">加入資產</button>
+        </div>
+
+        <div class="sec-head">
+          <div class="sec-title">資產明細</div>
+          <div class="sec-meta">點欄位可編輯</div>
+        </div>
+
+        <div id="asset-list"></div>
+      </section>
+
+      <!-- TAB 2 -->
+      <section class="panel" id="panel-ledger">
+        <div class="month-nav">
+          <button id="prev-month">‹</button>
+          <div class="month-label" id="month-label">—</div>
+          <button id="next-month">›</button>
+        </div>
+
+        <div class="summary-card">
+          <div class="ms-block income"><div class="lbl">收入</div><div class="val" id="month-income">0</div></div>
+          <div class="ms-divider"></div>
+          <div class="ms-block expense"><div class="lbl">支出</div><div class="val" id="month-expense">0</div></div>
+          <div class="ms-divider"></div>
+          <div class="ms-block net"><div class="lbl">結餘</div><div class="val" id="month-net">0</div></div>
+        </div>
+
+        <div class="type-toggle">
+          <button class="toggle-btn active" data-type="expense">支出</button>
+          <button class="toggle-btn" data-type="income">收入</button>
+        </div>
+
+        <div class="form-card">
+          <label>項目</label>
+          <input id="new-entry-name" placeholder="例如：房貸" />
+          <div class="grid-2">
+            <div>
+              <label>類別</label>
+              <select id="new-entry-cat"></select>
+            </div>
+            <div>
+              <label>金額</label>
+              <input type="number" inputmode="numeric" id="new-entry-amount" placeholder="0" />
+            </div>
+          </div>
+          <button class="submit-btn" id="add-entry-btn">加入</button>
+        </div>
+
+        <div class="sec-head">
+          <div class="sec-title">本月紀錄</div>
+          <div class="sec-meta">支出可勾選已繳費</div>
+        </div>
+
+        <div id="entries-list"></div>
+      </section>
+
+      <!-- TAB 3 -->
+      <section class="panel" id="panel-household">
+        <div class="sec-head">
+          <div class="sec-title">常用補貨</div>
+          <div class="sec-meta">點一下加入清單</div>
+        </div>
+
+        <div class="preset-grid" id="preset-grid"></div>
+
+        <div class="form-card">
+          <label>自訂項目</label>
+          <input id="new-household-name" placeholder="例如：醬油" />
+          <button class="submit-btn" id="add-household-btn">加入清單</button>
+        </div>
+
+        <div class="shop-section">
+          <div class="sec-head">
+            <div class="sec-title">要買的</div>
+            <div class="sec-meta" id="todo-count">0 項</div>
+          </div>
+          <div id="shop-todo-list"></div>
+        </div>
+
+        <div class="shop-section done-section">
+          <div class="sec-head">
+            <div class="sec-title">已買到</div>
+            <div class="sec-meta" id="done-count">0 項</div>
+          </div>
+          <div id="shop-done-list"></div>
+        </div>
+      </section>
+
+    </div>
+
+    <div class="footer">
+      家庭帳本 · 慢慢累積，持續富裕
+      <br>
+      <button class="small-btn" id="signout-btn">登出</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+  // ============================================================
+  // Supabase 設定（與搬家日記同一個 xiaoliu 專案）
+  // ============================================================
+  const SUPABASE_URL = 'https://djshurxgiugedmqwhtuj.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_60y_fLyXfv547b71kQAWRg_1gcMVDZG';
+  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // ============================================================
+  // Service Worker（PWA 離線殼層）
+  // ============================================================
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./ledger-sw.js').catch((err) => {
+        console.warn('Service worker registration failed:', err);
+      });
+    });
+  }
+
+  // ============================================================
+  // 常數
+  // ============================================================
+  const PRESETS = ['餐巾紙','牙膏','洗面乳','衛生紙','洗髮精','雞蛋','垃圾袋','濾網','冷洗精','洗衣球','洗碗精','濾紙'];
+  const EXPENSE_CATS = ['房貸租金','水電瓦斯','網路電信','保險','食材','外食','日用品','交通','醫療','育兒','學費','訂閱','稅','其他'];
+  const INCOME_CATS  = ['薪資','獎金','投資','利息','其他'];
+  const ASSET_COLORS = {
+    '存款':'#7e8b65', '基金':'#b9603a', '股票':'#c98a3f',
+    '保險':'#6b8a9e', '不動產':'#b88497', '其他':'#8d7a64',
+  };
+
+  // ============================================================
+  // 狀態
+  // ============================================================
+  const state = {
+    session: null,
+    assets: [],
+    entries: [],
+    items: [],
+  };
+  let currentYm = '';
+  let entryType = 'expense';
+  let realtimeChannel = null;
+
+  // ============================================================
+  // Helpers
+  // ============================================================
+  function ymStr(d = new Date()) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  }
+  function shiftMonth(ym, delta) {
+    const [y, m] = ym.split('-').map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    return ymStr(d);
+  }
+  function fmtMoney(n) {
+    if (n === null || n === undefined || isNaN(n)) return '0';
+    return Math.round(n).toLocaleString('zh-Hant');
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function showView(id) {
+    document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id));
+  }
+  let toastTimer = null;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+  }
+  function translateAuthError(msg) {
+    if (!msg) return '發生錯誤';
+    if (msg.includes('Invalid login')) return '信箱或密碼錯誤';
+    if (msg.includes('already registered')) return '此信箱已註冊，請改用登入';
+    if (msg.includes('Email not confirmed')) return '信箱尚未驗證——請通知管理員到 Supabase 關掉 email 驗證';
+    if (msg.includes('rate limit')) return '操作太頻繁，請稍候再試';
+    return msg;
+  }
+
+  // ============================================================
+  // 路由
+  // ============================================================
+  async function route() {
+    if (!state.session) {
+      cleanup();
+      showView('view-auth');
+      return;
+    }
+    // 已登入 → 檢查是否在白名單
+    try {
+      const { data: isMember, error } = await supabase.rpc('ledger_is_member');
+      if (error) throw error;
+      if (!isMember) {
+        document.getElementById('noaccess-uid').textContent = state.session.user.id;
+        showView('view-noaccess');
+        return;
+      }
+      // 在白名單 → 載入資料
+      await loadAll();
+      subscribeRealtime();
+      currentYm = ymStr();
+      renderAll();
+      showView('view-main');
+    } catch (e) {
+      console.error(e);
+      showToast('讀取失敗：' + e.message);
+    }
+  }
+
+  function cleanup() {
+    state.assets = []; state.entries = []; state.items = [];
+    if (realtimeChannel) {
+      supabase.removeChannel(realtimeChannel);
+      realtimeChannel = null;
+    }
+  }
+
+  // ============================================================
+  // 載入資料
+  // ============================================================
+  async function loadAll() {
+    const [a, e, i] = await Promise.all([
+      supabase.from('ledger_assets').select('*').order('sort_order').order('created_at'),
+      supabase.from('ledger_entries').select('*').order('created_at', { ascending: false }),
+      supabase.from('ledger_items').select('*').order('created_at', { ascending: false }),
+    ]);
+    if (a.error) throw a.error;
+    if (e.error) throw e.error;
+    if (i.error) throw i.error;
+    state.assets = a.data || [];
+    state.entries = e.data || [];
+    state.items = i.data || [];
+  }
+  async function reloadAssets() {
+    const { data, error } = await supabase.from('ledger_assets').select('*').order('sort_order').order('created_at');
+    if (!error) { state.assets = data || []; renderAssets(); }
+  }
+  async function reloadEntries() {
+    const { data, error } = await supabase.from('ledger_entries').select('*').order('created_at', { ascending: false });
+    if (!error) { state.entries = data || []; renderLedger(); }
+  }
+  async function reloadItems() {
+    const { data, error } = await supabase.from('ledger_items').select('*').order('created_at', { ascending: false });
+    if (!error) { state.items = data || []; renderHousehold(); }
+  }
+
+  function subscribeRealtime() {
+    if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+    realtimeChannel = supabase
+      .channel('ledger-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ledger_assets'  }, () => reloadAssets())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ledger_entries' }, () => reloadEntries())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ledger_items'   }, () => reloadItems())
+      .subscribe();
+  }
+
+  // ============================================================
+  // Tabs
+  // ============================================================
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      const id = t.dataset.tab;
+      document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + id));
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
+  });
+
+  // ============================================================
+  // Render
+  // ============================================================
+  function renderAll() {
+    renderAssets();
+    renderLedger();
+    renderHousehold();
+  }
+
+  // ----- ASSETS -----
+  function renderAssets() {
+    const list = document.getElementById('asset-list');
+    list.innerHTML = '';
+    let total = 0;
+    state.assets.forEach(a => {
+      total += Number(a.amount) || 0;
+      const color = ASSET_COLORS[a.category] || ASSET_COLORS['其他'];
+      const card = document.createElement('div');
+      card.className = 'asset-card';
+      card.innerHTML = `
+        <div class="asset-top">
+          <input class="asset-name" data-id="${a.id}" data-field="name" value="${escapeHtml(a.name)}" />
+          <button class="row-del" data-id="${a.id}" data-target="asset">×</button>
+        </div>
+        <div class="asset-bot">
+          <span class="asset-cat-tag">
+            <span class="asset-cat-dot" style="background:${color}"></span>
+            ${a.category}
+          </span>
+          <input class="asset-amount" data-id="${a.id}" data-field="amount" type="number" inputmode="numeric" value="${a.amount}" />
+        </div>
+      `;
+      list.appendChild(card);
+    });
+    if (state.assets.length === 0) {
+      list.innerHTML = '<div class="empty-state">還沒有資產項目</div>';
+    }
+    document.getElementById('total-assets').textContent = fmtMoney(total);
+
+    list.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('change', async e => {
+        const id = e.target.dataset.id;
+        const field = e.target.dataset.field;
+        const item = state.assets.find(x => x.id === id);
+        if (!item) return;
+        const newVal = field === 'amount' ? (parseFloat(e.target.value) || 0) : e.target.value.trim();
+        item[field] = newVal;
+        if (field === 'amount') { renderAssets(); renderPie(); }
+        const { error } = await supabase.from('ledger_assets')
+          .update({ [field]: newVal, updated_at: new Date().toISOString() }).eq('id', id);
+        if (error) { console.error(error); showToast('儲存失敗'); reloadAssets(); }
+      });
+    });
+    list.querySelectorAll('.row-del').forEach(b => {
+      b.addEventListener('click', async e => {
+        const id = e.currentTarget.dataset.id;
+        if (!confirm('刪除這筆資產？')) return;
+        const { error } = await supabase.from('ledger_assets').delete().eq('id', id);
+        if (error) { console.error(error); showToast('刪除失敗'); }
+      });
+    });
+    renderPie();
+  }
+
+  function renderPie() {
+    const card = document.getElementById('chart-card');
+    const svg = document.getElementById('pie-svg');
+    const legend = document.getElementById('pie-legend');
+    const byCat = {};
+    let total = 0;
+    state.assets.forEach(a => {
+      const amt = Number(a.amount) || 0;
+      if (amt <= 0) return;
+      byCat[a.category] = (byCat[a.category] || 0) + amt;
+      total += amt;
+    });
+    if (total === 0) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
+    const entries = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
+    const cx = 50, cy = 50, r = 36, sw = 18;
+    const C = 2 * Math.PI * r;
+    let svgContent = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#ede2c6" stroke-width="${sw}" />`;
+    let offset = 0;
+    entries.forEach(([cat, amt]) => {
+      const frac = amt / total;
+      const dash = frac * C;
+      const color = ASSET_COLORS[cat] || ASSET_COLORS['其他'];
+      svgContent += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-dasharray="${dash} ${C - dash}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})" />`;
+      offset += dash;
+    });
+    svg.innerHTML = svgContent;
+    legend.innerHTML = entries.map(([cat, amt]) => {
+      const color = ASSET_COLORS[cat] || ASSET_COLORS['其他'];
+      const pct = (amt / total * 100).toFixed(1);
+      return `<div class="legend-item"><span class="legend-swatch" style="background:${color}"></span><span>${cat}</span><span class="legend-pct">${pct}%</span></div>`;
+    }).join('');
+  }
+
+  document.getElementById('add-asset-btn').addEventListener('click', async () => {
+    const name = document.getElementById('new-asset-name').value.trim();
+    const category = document.getElementById('new-asset-cat').value;
+    const amount = parseFloat(document.getElementById('new-asset-amount').value) || 0;
+    if (!name) { document.getElementById('new-asset-name').focus(); return; }
+    const { error } = await supabase.from('ledger_assets')
+      .insert({ name, category, amount });
+    if (error) { console.error(error); showToast('新增失敗：' + error.message); return; }
+    document.getElementById('new-asset-name').value = '';
+    document.getElementById('new-asset-amount').value = '';
+  });
+
+  // ----- LEDGER -----
+  function populateEntryCats() {
+    const sel = document.getElementById('new-entry-cat');
+    const cats = entryType === 'expense' ? EXPENSE_CATS : INCOME_CATS;
+    sel.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+  }
+
+  function renderLedger() {
+    document.getElementById('month-label').textContent = currentYm.replace('-', ' / ');
+    populateEntryCats();
+
+    const monthEntries = state.entries.filter(e => e.ym === currentYm);
+    let income = 0, expense = 0;
+    monthEntries.forEach(e => {
+      if (e.type === 'income') income += Number(e.amount) || 0;
+      else expense += Number(e.amount) || 0;
+    });
+    document.getElementById('month-income').textContent = fmtMoney(income);
+    document.getElementById('month-expense').textContent = fmtMoney(expense);
+    const net = income - expense;
+    document.getElementById('month-net').textContent = (net >= 0 ? '' : '−') + fmtMoney(Math.abs(net));
+
+    const list = document.getElementById('entries-list');
+    const visible = monthEntries.filter(e => e.type === entryType);
+    if (visible.length === 0) {
+      list.innerHTML = `<div class="empty-state">本月還沒有${entryType === 'expense' ? '支出' : '收入'}紀錄</div>`;
+      return;
+    }
+    list.innerHTML = '';
+    visible.forEach(e => {
+      const showCheck = e.type === 'expense';
+      const checkClass = showCheck ? (e.paid ? 'checked' : '') : 'hidden';
+      const card = document.createElement('div');
+      card.className = 'entry-card ' + e.type;
+      card.innerHTML = `
+        <div class="entry-top">
+          <div class="entry-check ${checkClass}" data-id="${e.id}"></div>
+          <input class="entry-name ${e.paid ? 'done' : ''}" data-id="${e.id}" data-field="name" value="${escapeHtml(e.name)}" />
+          <button class="row-del" data-id="${e.id}">×</button>
+        </div>
+        <div class="entry-bot">
+          <span class="entry-cat">${e.category}</span>
+          <input class="entry-amount" data-id="${e.id}" data-field="amount" type="number" inputmode="numeric" value="${e.amount}" />
+        </div>
+      `;
+      list.appendChild(card);
+    });
+
+    list.querySelectorAll('.entry-check:not(.hidden)').forEach(c => {
+      c.addEventListener('click', async e => {
+        const id = e.target.dataset.id;
+        const item = state.entries.find(x => x.id === id);
+        if (!item) return;
+        const newPaid = !item.paid;
+        item.paid = newPaid;
+        renderLedger();
+        const { error } = await supabase.from('ledger_entries')
+          .update({ paid: newPaid, updated_at: new Date().toISOString() }).eq('id', id);
+        if (error) { console.error(error); showToast('儲存失敗'); reloadEntries(); }
+      });
+    });
+    list.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('change', async e => {
+        const id = e.target.dataset.id;
+        const field = e.target.dataset.field;
+        const item = state.entries.find(x => x.id === id);
+        if (!item) return;
+        const newVal = field === 'amount' ? (parseFloat(e.target.value) || 0) : e.target.value.trim();
+        item[field] = newVal;
+        renderLedger();
+        const { error } = await supabase.from('ledger_entries')
+          .update({ [field]: newVal, updated_at: new Date().toISOString() }).eq('id', id);
+        if (error) { console.error(error); showToast('儲存失敗'); reloadEntries(); }
+      });
+    });
+    list.querySelectorAll('.row-del').forEach(b => {
+      b.addEventListener('click', async e => {
+        const id = e.currentTarget.dataset.id;
+        if (!confirm('刪除這筆紀錄？')) return;
+        const { error } = await supabase.from('ledger_entries').delete().eq('id', id);
+        if (error) { console.error(error); showToast('刪除失敗'); }
+      });
+    });
+  }
+
+  document.getElementById('prev-month').addEventListener('click', () => { currentYm = shiftMonth(currentYm, -1); renderLedger(); });
+  document.getElementById('next-month').addEventListener('click', () => { currentYm = shiftMonth(currentYm, +1); renderLedger(); });
+
+  document.querySelectorAll('.toggle-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      entryType = b.dataset.type;
+      document.querySelectorAll('.toggle-btn').forEach(x => x.classList.toggle('active', x === b));
+      renderLedger();
+    });
+  });
+
+  document.getElementById('add-entry-btn').addEventListener('click', async () => {
+    const name = document.getElementById('new-entry-name').value.trim();
+    const category = document.getElementById('new-entry-cat').value;
+    const amount = parseFloat(document.getElementById('new-entry-amount').value) || 0;
+    if (!name) { document.getElementById('new-entry-name').focus(); return; }
+    const { error } = await supabase.from('ledger_entries')
+      .insert({ type: entryType, category, name, amount, ym: currentYm });
+    if (error) { console.error(error); showToast('新增失敗：' + error.message); return; }
+    document.getElementById('new-entry-name').value = '';
+    document.getElementById('new-entry-amount').value = '';
+  });
+
+  // ----- HOUSEHOLD -----
+  function renderHousehold() {
+    const grid = document.getElementById('preset-grid');
+    grid.innerHTML = '';
+    PRESETS.forEach(p => {
+      const chip = document.createElement('button');
+      chip.className = 'preset-chip';
+      chip.textContent = p;
+      chip.addEventListener('click', async () => {
+        const { error } = await supabase.from('ledger_items').insert({ name: p });
+        if (error) { console.error(error); showToast('新增失敗'); }
+      });
+      grid.appendChild(chip);
+    });
+
+    const todo = state.items.filter(i => !i.done);
+    const done = state.items.filter(i => i.done).sort((a,b) => (b.done_at||'').localeCompare(a.done_at||''));
+    document.getElementById('todo-count').textContent = `${todo.length} 項`;
+    document.getElementById('done-count').textContent = `${done.length} 項`;
+
+    const todoList = document.getElementById('shop-todo-list');
+    if (todo.length === 0) todoList.innerHTML = '<div class="empty-state">清單空空，現在沒有要買的</div>';
+    else { todoList.innerHTML = ''; todo.forEach(i => todoList.appendChild(buildShopRow(i))); }
+
+    const doneList = document.getElementById('shop-done-list');
+    if (done.length === 0) doneList.innerHTML = '<div class="empty-state">還沒有買到任何東西</div>';
+    else { doneList.innerHTML = ''; done.forEach(i => doneList.appendChild(buildShopRow(i))); }
+  }
+
+  function buildShopRow(i) {
+    const row = document.createElement('div');
+    row.className = 'shop-item';
+    row.innerHTML = `
+      <div class="shop-check ${i.done ? 'checked' : ''}"></div>
+      <div class="shop-name ${i.done ? 'done' : ''}">${escapeHtml(i.name)}</div>
+      <button class="row-del">×</button>
+    `;
+    row.querySelector('.shop-check').addEventListener('click', async () => {
+      const newDone = !i.done;
+      i.done = newDone;
+      i.done_at = newDone ? new Date().toISOString() : null;
+      renderHousehold();
+      const { error } = await supabase.from('ledger_items')
+        .update({ done: newDone, done_at: i.done_at }).eq('id', i.id);
+      if (error) { console.error(error); showToast('儲存失敗'); reloadItems(); }
+    });
+    row.querySelector('.row-del').addEventListener('click', async () => {
+      const { error } = await supabase.from('ledger_items').delete().eq('id', i.id);
+      if (error) { console.error(error); showToast('刪除失敗'); }
+    });
+    return row;
+  }
+
+  document.getElementById('add-household-btn').addEventListener('click', async () => {
+    const input = document.getElementById('new-household-name');
+    const name = input.value.trim();
+    if (!name) return;
+    const { error } = await supabase.from('ledger_items').insert({ name });
+    if (error) { console.error(error); showToast('新增失敗'); return; }
+    input.value = '';
+  });
+  document.getElementById('new-household-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('add-household-btn').click(); }
+  });
+
+  // ============================================================
+  // Auth handlers
+  // ============================================================
+  let authMode = 'signin';
+  document.querySelectorAll('.auth-tab').forEach(t => {
+    t.addEventListener('click', () => {
+      authMode = t.dataset.mode;
+      document.querySelectorAll('.auth-tab').forEach(x => x.classList.toggle('active', x === t));
+      document.getElementById('auth-submit').textContent = authMode === 'signin' ? '登入' : '註冊';
+      document.getElementById('auth-error').textContent = '';
+      document.getElementById('auth-info').textContent = '';
+    });
+  });
+  async function handleAuthSubmit() {
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const errEl = document.getElementById('auth-error');
+    const infoEl = document.getElementById('auth-info');
+    errEl.textContent = ''; infoEl.textContent = '';
+    if (!email || !password) { errEl.textContent = '請輸入信箱與密碼'; return; }
+    if (authMode === 'signup' && password.length < 6) { errEl.textContent = '密碼至少 6 個字'; return; }
+    const btn = document.getElementById('auth-submit');
+    btn.disabled = true;
+    try {
+      if (authMode === 'signup') {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        infoEl.textContent = '註冊成功！登入中⋯';
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+    } catch (e) {
+      errEl.textContent = translateAuthError(e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  document.getElementById('auth-submit').addEventListener('click', handleAuthSubmit);
+  document.getElementById('auth-password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleAuthSubmit();
+  });
+
+  document.getElementById('noaccess-recheck').addEventListener('click', () => { route(); });
+  document.getElementById('noaccess-signout').addEventListener('click', async () => {
+    await supabase.auth.signOut();
+  });
+  document.getElementById('signout-btn').addEventListener('click', async () => {
+    if (!confirm('要登出嗎？')) return;
+    await supabase.auth.signOut();
+  });
+
+  // ============================================================
+  // Init
+  // ============================================================
+  (async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    state.session = session;
+    supabase.auth.onAuthStateChange((event, newSession) => {
+      state.session = newSession;
+      route();
+    });
+    await route();
+  })();
+</script>
+</body>
+</html>

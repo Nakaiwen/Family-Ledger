@@ -1,0 +1,33 @@
+{
+  "name": "家庭帳本",
+  "short_name": "家庭帳本",
+  "description": "家庭總資產、重要收支、柴米油鹽——慢慢累積，持續富裕。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6efe1",
+  "theme_color": "#f6efe1",
+  "orientation": "portrait",
+  "lang": "zh-Hant",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "./ledger-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./ledger-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./ledger-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
